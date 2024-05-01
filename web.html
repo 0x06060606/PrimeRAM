@@ -68,23 +68,28 @@
             }
             readNextChunk();
         });
-        function blobToBytes(blob, callback) {
+        function analyze(blob) {
+            $('#status').text('RAM dump loaded (' + (blob.size / 1024 / 1024 / 1024).toFixed(2) + ' GB) - Carving...');
+            const pngs = [];
+            const pngHeader = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
             const reader = new FileReader();
             reader.onload = function(event) {
+                $('#status').text('RAM dump loaded (' + (blob.size / 1024 / 1024 / 1024).toFixed(2) + ' GB) - Carving (' + pngs.length + ' PNGs found)');
                 const arrayBuffer = event.target.result;
-                const bytes = new Uint8Array(arrayBuffer);
-                callback(bytes);
+                const data = new Uint8Array(arrayBuffer);
+                for (let i = 0; i < data.length - 8; i++) {
+                    if (data[i] === pngHeader[0] && data[i + 1] === pngHeader[1] && data[i + 2] === pngHeader[2] && data[i + 3] === pngHeader[3] && data[i + 4] === pngHeader[4] && data[i + 5] === pngHeader[5] && data[i + 6] === pngHeader[6] && data[i + 7] === pngHeader[7]) {
+                        const png = data.slice(i);
+                        pngs.push(png);
+                        i += 8;
+                        $('#status').text('RAM dump loaded (' + (blob.size / 1024 / 1024 / 1024).toFixed(2) + ' GB) - Carving (' + pngs.length + ' PNGs found)');
+                    }
+                }
             };
             reader.onerror = function(event) {
-                console.error('Error reading blob:', event.target.error);
+                console.error('Error reading file:', event.target.error);
             };
             reader.readAsArrayBuffer(blob);
-        }
-        function analyze(blob) {
-            blobToBytes(blob, function(bytes) {
-                $('#status').text('RAM dump loaded (' + (bytes.length / 1024 / 1024 / 1024).toFixed(2) + ' GB)');
-                console.log('Bytes:', bytes);
-            });
         }
     </script>
 </body>
