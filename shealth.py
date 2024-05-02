@@ -7,9 +7,6 @@ import mmap
 Results = {}
 Patterns = {
     'sqlitecipher_key': re.compile(r"x'[a-f0-9]{96}'"),
-    'phone_numbers': re.compile(r'(\+?\d{1,2}[-.\s]?\d{3}[-.\s]?\d{3}[-.\s]?\d{4})'),
-    'emails': re.compile(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})'),
-    'urls': re.compile(r'((?:https?|ftp):\/\/[^\s/$.?#].[^\s]*)'),
     # Add more patterns here
 }
 

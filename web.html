@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Android RAM Analyzer</title>
@@ -8,111 +9,496 @@
         .body.dark-mode {
             background-color: #343a40;
             color: #ffffff;
+            width: 100%;
+            height: 100%;
         }
+
+        .body.dark-mode footer {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            width: -webkit-fill-available;
+        }
+
         .body.dark-mode .btn {
             background-color: #666;
             border-color: #666;
         }
+
         .body.dark-mode .container {
             background-color: #343a40;
             border-color: #343a40;
-            width: fit-content;
+            width: -webkit-fill-available;
+            overflow: hidden;
+            max-height: 55rem;
         }
+
         .body.dark-mode .progress-bar {
             background-color: #007bff;
         }
+
         .body.dark-mode .form-control {
             background-color: #666;
             color: #ffffff;
         }
+
+        .body.dark-mode .card {
+            background-color: #666;
+            border-color: #666;
+        }
+
+        .body.dark-mode .card-body {
+            max-height: 45rem;
+            overflow: auto;
+            background-color: #666666;
+            scrollbar-width: thin;
+            overflow-x: auto;
+            scrollbar-gutter: auto;
+        }
+
+        img.col-3 {
+            border-style: ridge;
+            border-color: #343a40;
+            height: auto;
+            image-rendering: auto;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            padding-top: 100px;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0 0 0 / 90%);
+        }
     </style>
 </head>
+
 <body class="body dark-mode">
     <div class="container mt-3">
         <h1>Android RAM Analyzer</h1>
         <p class="lead" id="status">Select a file to analyze</p>
         <input type="file" id="file-input" class="form-control">
         <div class="progress my-3" style="display: none;">
-            <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0"
+                aria-valuemin="0" aria-valuemax="100"></div>
         </div>
+        <div class="container text-center">
+            <div class="row">
+                <div class="col">
+                    <button style="display: none;" class="btn btn-primary" type="button" id="pngimage-list-collapse-btn" data-bs-toggle="collapse" data-bs-target="#pngimage-list-collapse" aria-expanded="false" aria-controls="pngimage-list-collapse">
+                        PNG Images (0)
+                    </button>
+                    <div class="collapse" id="pngimage-list-collapse">
+                        <div class="card card-body">
+                            <h2>PNG Images found</h2>
+                            <div class="row" id="pngimage-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <button style="display: none;" class="btn btn-primary" type="button" id="jpegimage-list-collapse-btn" data-bs-toggle="collapse" data-bs-target="#jpegimage-list-collapse" aria-expanded="false" aria-controls="jpegimage-list-collapse">
+                        JPEG Images (0)
+                    </button>
+                    <div class="collapse" id="jpegimage-list-collapse">
+                        <div class="card card-body">
+                            <h2>JPEG Images found</h2>
+                            <div class="row" id="jpegimage-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <button style="display: none;" class="btn btn-primary" type="button" id="sqlitecipher_key-list-collapse-btn" data-bs-toggle="collapse" data-bs-target="#sqlitecipher_key-list-collapse" aria-expanded="false" aria-controls="sqlitecipher_key-list-collapse">
+                        SQLiteCipher Keys (0)
+                    </button>
+                    <div class="collapse" id="sqlitecipher_key-list-collapse">
+                        <div class="card card-body">
+                            <h2>SQLiteCipher Keys found</h2>
+                            <div class="row" id="sqlitecipher_key-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <button style="display: none;" class="btn btn-primary" type="button" id="sqlite-list-collapse-btn" data-bs-toggle="collapse" data-bs-target="#sqlite-list-collapse" aria-expanded="false" aria-controls="sqlite-list-collapse">
+                        SQLite Databases (0)
+                    </button>
+                    <div class="collapse" id="sqlite-list-collapse">
+                        <div class="card card-body">
+                            <h2>SQLite Databases found</h2>
+                            <div class="row" id="sqlite-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Footer -->
+        <footer class="text-center mt-3">
+            <div class="container text-center">
+                <div class="row">
+                    <div class="col">
+                        <p>Developed by John Bell</p>
+                    </div>
+                    <div class="col">
+                        <p>RAM Usage: <span id="ram-usage">0</span> MB</p>
+                    </div>
+                    <div class="col">
+                        <p>Version 1.0.0</p>
+                    </div>
+                </div>
+            </div>
+        </footer>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
-        window.blobParts = [];
-        window.fullBlob = null;
-        document.getElementById('file-input').addEventListener('change', function(event) {
+        // // // // Error Handling // // // //
+        window.addEventListener('error', function (e) {
+            $('#status').text('Uncaught error: ' + e.error.message);
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            $('#status').text('Uncaught promise rejection: ' + e.reason);
+        });
+        // // // // Memory Management // // // //
+        window.FoundHashes = new Set();
+        setInterval(function () {
+            const memory = performance.memory;
+            const ramUsage = memory.usedJSHeapSize / 1024 / 1024;
+            $('#ram-usage').text(ramUsage.toFixed(2));
+        }, 200);
+    </script>
+    <script>
+        // // // // File Input // // // //
+        document.getElementById('file-input').addEventListener('change', function (event) {
             $('#file-input').prop('disabled', true);
-            $('#status').text('Reading RAM dump...');
+            $('#status').text('Reading RAM dump... (0%)');
             $('#file-input').hide();
             $('#progress-bar').parent().show();
             const file = event.target.files[0];
             if (!file) {
                 return;
-            } else if (file.size < 30 * 1024 * 1024) {
-                window.fullBlob = file;
-                return;
             }
-            window.offset = 0;
             const chunkSize = 30 * 1024 * 1024;
+            let offset = 0;
             const reader = new FileReader();
+            reader.onload = function (e) {
+                performCarving(e.target.result);
+                offset += e.target.result.byteLength;
+                if (offset < file.size) {
+                    readNextChunk();
+                } else {
+                    $('#progress-bar').parent().hide();
+                    finalizeProcessing();
+                }
+            };
+            reader.onerror = function (err) {
+                console.error(err);
+                $('#status').text('Out of memory! Please restart the browser or try a different computer.');
+            };
+            function readNextChunk() {
+                const slice = file.slice(offset, offset + chunkSize);
+                reader.readAsArrayBuffer(slice);
+                updateProgress((offset / file.size) * 100);
+                $('#status').text('Reading RAM dump... (' + (offset / file.size * 100).toFixed(2) + '%)');
+            }
             function updateProgress(percent) {
                 const progressBar = document.getElementById('progress-bar');
                 progressBar.style.width = percent + '%';
                 progressBar.setAttribute('aria-valuenow', percent);
             }
-            reader.onload = function(event) {
-                const arrayBuffer = event.target.result;
-                window.blobParts.push(new Blob([arrayBuffer]));
-                window.offset += arrayBuffer.byteLength;
-                readNextChunk();
-            };
-            reader.onerror = function(event) {
-                console.error('Error reading file:', event.target.error);
-            };
-            function readNextChunk() {
-                if (window.offset >= file.size) {
-                    console.log('Read complete');
-                    updateProgress(100);
-                    window.fullBlob = new Blob(window.blobParts, { type: file.type });
-                    $('#progress-bar').parent().hide();
-                    let GB = window.fullBlob.size / 1024 / 1024 / 1024;
-                    $('#status').text('RAM dump loaded (' + GB.toFixed(2) + ' GB)');
-                    const progressBar = document.getElementById('progress-bar');
-                    progressBar.style.width = '0%';
-                    progressBar.setAttribute('aria-valuenow', 0);
-                    analyze(window.fullBlob);
-                    return;
-                }
-                const slice = file.slice(window.offset, window.offset + chunkSize);
-                reader.readAsArrayBuffer(slice);
-                updateProgress((window.offset / file.size) * 100);
-            }
             readNextChunk();
         });
-        function analyze(blob) {
-            $('#status').text('RAM dump loaded (' + (blob.size / 1024 / 1024 / 1024).toFixed(2) + ' GB) - Carving...');
-            const pngs = [];
-            const pngHeader = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                $('#status').text('RAM dump loaded (' + (blob.size / 1024 / 1024 / 1024).toFixed(2) + ' GB) - Carving (' + pngs.length + ' PNGs found)');
-                const arrayBuffer = event.target.result;
-                const data = new Uint8Array(arrayBuffer);
-                for (let i = 0; i < data.length - 8; i++) {
-                    if (data[i] === pngHeader[0] && data[i + 1] === pngHeader[1] && data[i + 2] === pngHeader[2] && data[i + 3] === pngHeader[3] && data[i + 4] === pngHeader[4] && data[i + 5] === pngHeader[5] && data[i + 6] === pngHeader[6] && data[i + 7] === pngHeader[7]) {
-                        const png = data.slice(i);
-                        pngs.push(png);
-                        i += 8;
-                        $('#status').text('RAM dump loaded (' + (blob.size / 1024 / 1024 / 1024).toFixed(2) + ' GB) - Carving (' + pngs.length + ' PNGs found)');
+        function performCarving(AB) {
+            performpngCarving(AB);
+            performjpegCarving(AB);
+            performsqlitecipher_keyCarving(AB);
+            performsqliteCarving(AB);
+            // Add more carvers here
+        }
+        function finalizeProcessing() {
+            $('#status').text('Processing complete?');
+        }
+        // // // // PNG Carving // // // //
+        function performpngCarving(AB) {
+            const view = new DataView(AB);
+            const SZ = view.byteLength;
+            const PNG_HEADER = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+            const PNG_FOOTER = [0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82];
+            const PNG_HEADER_LENGTH = PNG_HEADER.length;
+            const PNG_FOOTER_LENGTH = PNG_FOOTER.length;
+            const PNG_SIGNATURE_LENGTH = PNG_HEADER_LENGTH + PNG_FOOTER_LENGTH;
+            let start = 0;
+            let end = 0;
+            let found = false;
+            for (let i = 0; i < SZ - PNG_SIGNATURE_LENGTH; i++) {
+                if (view.getUint8(i) === PNG_HEADER[0]) {
+                    found = true;
+                    for (let j = 1; j < PNG_HEADER_LENGTH; j++) {
+                        if (view.getUint8(i + j) !== PNG_HEADER[j]) {
+                            found = false;
+                            break;
+                        }
+                    }
+                    if (found) {
+                        start = i;
+                        break;
                     }
                 }
+            }
+            if (!found) {
+                return;
+            }
+            for (let i = start + PNG_HEADER_LENGTH; i < SZ - PNG_FOOTER_LENGTH; i++) {
+                if (view.getUint8(i) === PNG_FOOTER[0]) {
+                    found = true;
+                    for (let j = 1; j < PNG_FOOTER_LENGTH; j++) {
+                        if (view.getUint8(i + j) !== PNG_FOOTER[j]) {
+                            found = false;
+                            break;
+                        }
+                    }
+                    if (found) {
+                        end = i + PNG_FOOTER_LENGTH;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                return;
+            }
+            const png = view.buffer.slice(start, end);
+            png_hash = new Uint32Array(1);
+            crypto.subtle.digest('SHA-256', png).then(function (hash) {
+                png_hash = new Uint32Array(hash);
+                if (window.FoundHashes.has(png_hash[0])) {
+                    return;
+                }
+                window.FoundHashes.add(png_hash[0]);
+            });
+            displaypngImage(new Blob([png]));
+        }
+        window.pngcount = 0;
+        function displaypngImage(png) {
+            if (window.pngcount === 0) {
+                $('#pngimage-list-collapse-btn').show();
+            }
+            window.pngcount++;
+            $('#pngimage-list-collapse-btn').text('PNG Images (' + window.pngcount + ')');
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                console.log('PNG found!');
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = 'PNG Image ' + window.pngcount;
+                img.className = 'col-3';
+                img.onclick = function () {
+                    const modal = document.createElement('div');
+                    modal.className = 'modal';
+                    modal.style.display = 'block';
+                    modal.onclick = function () {
+                        modal.style.display = 'none';
+                    };
+                    const modalContent = document.createElement('img');
+                    modalContent.src = e.target.result;
+                    modalContent.style.maxWidth = '100%';
+                    modalContent.style.maxHeight = '100%';
+                    modalContent.style.imageRendering = 'auto';
+                    modalContent.style.position = 'relative';
+                    modalContent.style.left = '45%';
+                    modalContent.style.top = '30%';
+                    modal.appendChild(modalContent);
+                    document.body.appendChild(modal);
+                };
+                img.style.cursor = 'pointer';
+                img.setAttribute('title', 'PNG Image ' + window.pngcount);
+                document.getElementById('pngimage-list').appendChild(img);
             };
-            reader.onerror = function(event) {
-                console.error('Error reading file:', event.target.error);
+            reader.readAsDataURL(png);
+        }
+        // // // // JPEG Carving // // // //
+        function performjpegCarving(AB) {
+            const view = new DataView(AB);
+            const SZ = view.byteLength;
+            const JPEG_HEADER = [0xFF, 0xD8, 0xFF];
+            const JPEG_FOOTER = [0xFF, 0xD9];
+            const JPEG_HEADER_LENGTH = JPEG_HEADER.length;
+            const JPEG_FOOTER_LENGTH = JPEG_FOOTER.length;
+            const JPEG_SIGNATURE_LENGTH = JPEG_HEADER_LENGTH + JPEG_FOOTER_LENGTH;
+            let start = 0;
+            let end = 0;
+            let found = false;
+            for (let i = 0; i < SZ - JPEG_SIGNATURE_LENGTH; i++) {
+                if (view.getUint8(i) === JPEG_HEADER[0] && view.getUint8(i + 1) === JPEG_HEADER[1] && view.getUint8(i + 2) === JPEG_HEADER[2]) {
+                    start = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return;
+            }
+            for (let i = start + JPEG_HEADER_LENGTH; i < SZ - JPEG_FOOTER_LENGTH; i++) {
+                if (view.getUint8(i) === JPEG_FOOTER[0] && view.getUint8(i + 1) === JPEG_FOOTER[1]) {
+                    end = i + JPEG_FOOTER_LENGTH;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return;
+            }
+            const jpeg = view.buffer.slice(start, end);
+            jpeg_hash = new Uint32Array(1);
+            crypto.subtle.digest('SHA-256', jpeg).then(function (hash) {
+                jpeg_hash = new Uint32Array(hash);
+                if (window.FoundHashes.has(jpeg_hash[0])) {
+                    return;
+                }
+                window.FoundHashes.add(jpeg_hash[0]);
+            });
+            displayjpegImage(new Blob([jpeg]));
+        }
+        window.jpegcount = 0;
+        function displayjpegImage(jpeg) {
+            if (window.jpegcount === 0) {
+                $('#jpegimage-list-collapse-btn').show();
+            }
+            window.jpegcount++;
+            $('#jpegimage-list-collapse-btn').text('JPEG Images (' + window.jpegcount + ')');
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                console.log('JPEG found!');
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = 'JPEG Image ' + window.jpegcount;
+                img.className = 'col-3';
+                img.onclick = function () {
+                    const modal = document.createElement('div');
+                    modal.className = 'modal';
+                    modal.style.display = 'block';
+                    modal.onclick = function () {
+                        modal.style.display = 'none';
+                    };
+                    const modalContent = document.createElement('img');
+                    modalContent.src = e.target.result;
+                    modalContent.style.maxWidth = '100%';
+                    modalContent.style.maxHeight = '100%';
+                    modalContent.style.imageRendering = 'auto';
+                    modalContent.style.position = 'relative';
+                    modalContent.style.left = '45%';
+                    modalContent.style.top = '30%';
+                    modal.appendChild(modalContent);
+                    document.body.appendChild(modal);
+                };
+                img.style.cursor = 'pointer';
+                img.setAttribute('title', 'JPEG Image ' + window.jpegcount);
+                document.getElementById('jpegimage-list').appendChild(img);
+
             };
-            reader.readAsArrayBuffer(blob);
+            reader.readAsDataURL(jpeg);
+        }
+        // // // // SQLiteCipher Key Carving // // // //
+        function performsqlitecipher_keyCarving(AB) {
+            const view = new DataView(AB);
+            const SZ = view.byteLength;
+            const SQLITECIPHER_KEY_REGEX = /x'[a-f0-9]{96}'/g;
+            let match;
+            const str = new TextDecoder().decode(view);
+            while ((match = SQLITECIPHER_KEY_REGEX.exec(str)) !== null) {
+                str_hash = new Uint32Array(1);
+                crypto.subtle.digest('SHA-256', new TextEncoder().encode(match[0])).then(function (hash) {
+                    str_hash = new Uint32Array(hash);
+                    if (window.FoundHashes.has(str_hash[0])) {
+                        return;
+                    }
+                    window.FoundHashes.add(str_hash[0]);
+                });
+                displaysqlitecipher_key(match[0]);
+            }
+        }
+        window.sqlitecipher_keys = [];
+        function displaysqlitecipher_key(sqlitecipher_key) {
+            if (window.sqlitecipher_keys.length === 0) {
+                $('#sqlitecipher_key-list-collapse-btn').show();
+            }
+            if (window.sqlitecipher_keys.includes(sqlitecipher_key)) {
+                return;
+            }
+            window.sqlitecipher_keys.push(sqlitecipher_key);
+            $('#sqlitecipher_key-list-collapse-btn').text('SQLiteCipher Keys (' + window.sqlitecipher_keys.length + ')');
+            const div = document.createElement('div');
+            div.className = 'row';
+            div.textContent = sqlitecipher_key;
+            div.setAttribute('title', 'SQLiteCipher Key ' + window.sqlitecipher_keys.length);
+            document.getElementById('sqlitecipher_key-list').appendChild(div);
+        }
+        // // // // SQLite Carving // // // //
+        function performsqliteCarving(AB) {
+            const view = new DataView(AB);
+            const SZ = view.byteLength;
+            const SQLITE_HEADER = [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00];
+            const SQLITE_HEADER_LENGTH = SQLITE_HEADER.length;
+            let start = 0;
+            let end = 0;
+            let found = false;
+            for (let i = 0; i < SZ - SQLITE_HEADER_LENGTH; i++) {
+                found = true;
+                for (let j = 0; j < SQLITE_HEADER_LENGTH; j++) {
+                    if (view.getUint8(i + j) !== SQLITE_HEADER[j]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    start = i;
+                    break;
+                }
+            }
+            if (!found) {
+                return;
+            }
+            let Page_Size = view.getUint16(start + 16, true);
+            let DB_Size = view.getUint32(start + 28, true);
+            let DB_Size_Pages = Math.ceil(DB_Size / Page_Size);
+            end = start + Page_Size * DB_Size_Pages;
+            const sqlite = view.buffer.slice(start, end);
+            sqlite_hash = new Uint32Array(1);
+            crypto.subtle.digest('SHA-256', sqlite).then(function (hash) {
+                sqlite_hash = new Uint32Array(hash);
+                if (window.FoundHashes.has(sqlite_hash[0])) {
+                    return;
+                }
+                window.FoundHashes.add(sqlite_hash[0]);
+            });
+            displaysqlite(new Blob([sqlite]));
+        }
+        window.sqlitecount = 0;
+        function displaysqlite(sqlite) {
+            if (window.sqlitecount === 0) {
+                $('#sqlite-list-collapse-btn').show();
+            }
+            window.sqlitecount++;
+            $('#sqlite-list-collapse-btn').text('SQLite Databases (' + window.sqlitecount + ')');
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                console.log('SQLite found!');
+                const div = document.createElement('a');
+                div.href = URL.createObjectURL(sqlite);
+                div.download = '' + window.sqlitecount + '.db';
+                div.textContent = '' + window.sqlitecount + '.db';
+                div.className = 'row';
+                div.setAttribute('title', 'SQLite Database ' + window.sqlitecount);
+                document.getElementById('sqlite-list').appendChild(div);
+            };
+            reader.readAsText(sqlite);
         }
     </script>
 </body>
+
 </html>
