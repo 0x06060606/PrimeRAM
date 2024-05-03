@@ -159,6 +159,17 @@
                         </div>
                     </div>
                 </div>
+                <div class="col">
+                    <button disabled class="btn btn-primary" type="button" id="androidbinaryxml-list-collapse-btn" data-bs-toggle="collapse" data-bs-target="#androidbinaryxml-list-collapse" aria-expanded="false" aria-controls="androidbinaryxml-list-collapse">
+                        Android Binary XML (0)
+                    </button>
+                    <div class="collapse" id="androidbinaryxml-list-collapse">
+                        <div class="card card-body">
+                            <h2>Android Binary XML found</h2>
+                            <div class="row" id="androidbinaryxml-list"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="row">
                 <div class="col">
@@ -231,6 +242,90 @@
             $('#found-hashes').text(window.FoundHashes.size);
             $('#errors').text(window.errorsNumber);
         }, 200);
+        // // // // Android Binary XML to XML // // // //
+        function parseBinaryXML(dataView) {
+            let offset = 0;
+            let stringPool = {};
+            const xmlData = {
+                elements: []
+            };
+
+            while (offset < dataView.byteLength) {
+                const chunkType = dataView.getUint16(offset, true);
+                const stringPoolHeaderSize = dataView.getUint16(offset + 2, true);
+                const stringPoolChunkSize = dataView.getUint32(offset + 4, true);
+                const stringPoolChunk = dataView.buffer.slice(offset + 8, offset + 8 + stringPoolChunkSize);
+                const strings = parseStringPoolChunk(0, new DataView(stringPoolChunk));
+                stringPool = { ...stringPool, ...strings };
+                offset += 8 + stringPoolChunkSize;
+                if (chunkType === 0x001C) {
+                    const xmlHeader = dataView.buffer.slice(offset + 2, offset + 2 + dataView.getUint16(offset, true));
+                    const xmlHeaderData = new DataView(xmlHeader);
+                    const xmlHeaderOffset = xmlHeaderData.getUint32(0, true);
+                    const xmlHeaderSize = xmlHeaderData.getUint32(4, true);
+                    const xmlHeaderStrings = parseStringPoolChunk(xmlHeaderOffset, xmlHeaderData);
+                    const xmlHeaderName = xmlHeaderStrings[xmlHeaderData.getUint32(8, true)];
+                    const xmlHeaderNamespace = xmlHeaderStrings[xmlHeaderData.getUint32(12, true)];
+                    const xmlHeaderAttributes = [];
+                    for (let i = 16; i < xmlHeaderSize; i += 20) {
+                        const attribute = parseAttributeValue(xmlHeaderData, i);
+                        const attributeName = xmlHeaderStrings[attribute.name];
+                        const attributeValue = xmlHeaderStrings[attribute.rawValue];
+                        xmlHeaderAttributes.push({
+                            ns: attribute.ns,
+                            name: attributeName,
+                            value: attributeValue
+                        });
+                    }
+                    xmlData.elements.push({
+                        name: xmlHeaderName,
+                        namespace: xmlHeaderNamespace,
+                        attributes: xmlHeaderAttributes
+                    });
+                    offset += 2 + xmlHeaderSize;
+                }
+            }
+
+            function parseStringPoolChunk(offset, dataView) {
+                const stringCount = dataView.getUint32(offset, true);
+                const styleCount = dataView.getUint32(offset + 4, true);
+                const flags = dataView.getUint32(offset + 8, true);
+                const stringPoolOffset = dataView.getUint32(offset + 12, true);
+                const stylePoolOffset = dataView.getUint32(offset + 16, true);
+                const stringOffsets = new Array(stringCount);
+                for (let i = 0; i < stringCount; i++) {
+                    stringOffsets[i] = dataView.getUint32(stringPoolOffset + i * 4, true);
+                }
+                const strings = new Array(stringCount);
+                for (let i = 0; i < stringCount; i++) {
+                    strings[i] = getString(stringOffsets[i], stringPool, dataView);
+                }
+                return strings;
+            }
+            function getString(offset, stringPool, dataView) {
+                if (stringPool[offset]) {
+                    return stringPool[offset];
+                }
+                const length = dataView.getUint8(offset);
+                const str = new TextDecoder().decode(new Uint8Array(dataView.buffer, offset + 1, length));
+                stringPool[offset] = str;
+                return str;
+            }
+            function parseAttributeValue(dataView, offset) {
+                const ns = dataView.getUint32(offset, true);
+                const name = dataView.getUint32(offset + 4, true);
+                const rawValue = dataView.getUint32(offset + 8, true);
+                const typedValue = dataView.getUint32(offset + 12, true);
+                return {
+                    ns,
+                    name,
+                    rawValue,
+                    typedValue
+                };
+            }
+            return xmlData;
+        }
+
     </script>
     <script>
         // // // // File Input // // // //
@@ -279,6 +374,7 @@
             performjpegCarving(AB);
             performsqlitecipher_keyCarving(AB);
             performsqliteCarving(AB);
+            performxmlCarving(AB);
             // Add more carvers here
         }
         function finalizeProcessing() {
@@ -287,6 +383,7 @@
                 $('#download-btn').prop('disabled', true);
                 $('#download-btn').text('Compiling results...');
                 const zip = new JSZip();
+                const sqlzip = new JSZip();
                 const pngImages = document.getElementById('pngimage-list').children;
                 for (let i = 0; i < pngImages.length; i++) {
                     const img = pngImages[i];
@@ -305,7 +402,7 @@
                 const sqliteDatabases = document.getElementById('sqlite-list').children;
                 for (let i = 0; i < sqliteDatabases.length; i++) {
                     const db = sqliteDatabases[i];
-                    zip.file('SQLite Database ' + (i + 1) + '.db', db.textContent);
+                    sqlzip.file('SQLite Database ' + (i + 1) + '.db', db.getAttribute('data-sqlite-blob'));
                 }
                 zip.generateAsync({ type: 'blob' }).then(function (blob) {
                     const url = URL.createObjectURL(blob);
@@ -314,8 +411,16 @@
                     a.download = 'Android RAM Analysis.zip';
                     a.click();
                     URL.revokeObjectURL(url);
-                    $('#download-btn').text('Download Results');
-                    $('#download-btn').prop('disabled', false);
+                    sqlzip.generateAsync({ type: 'blob' }).then(function (sqlblob) {
+                        const sqlurl = URL.createObjectURL(sqlblob);
+                        const sqla = document.createElement('a');
+                        sqla.href = sqlurl;
+                        sqla.download = 'Android RAM Analysis SQLite.zip';
+                        sqla.click();
+                        URL.revokeObjectURL(sqlurl);
+                        $('#download-btn').text('Download Results');
+                        $('#download-btn').prop('disabled', false);
+                    });
                 });
             });
             $('#download-btn').show();
@@ -580,7 +685,7 @@
             let Page_Size = view.getUint16(start + 16, true);
             let DB_Size = view.getUint32(start + 28, true);
             let DB_Size_Pages = Math.ceil(DB_Size / Page_Size);
-            end = start + Page_Size * DB_Size_Pages;
+            end = start + Page_Size * DB_Size_Pages + 100;
             const sqlite = view.buffer.slice(start, end);
             const sqlite_db = new Uint8Array(sqlite);
             const db = new SQL.Database(sqlite_db);
@@ -611,48 +716,101 @@
             const div = document.createElement('div');
             div.className = 'row';
             div.textContent = 'SQLite Database ' + window.sqlitecount;
+            div.setAttribute('data-sqlite-blob', sqlite_db);
             div.setAttribute('title', 'SQLite Database ' + window.sqlitecount);
             div.onclick = function () {
-                const modal = document.createElement('div');
-                modal.className = 'modal';
-                modal.style.display = 'block';
-                modal.onclick = function () {
-                    modal.style.display = 'none';
-                };
-                const modalContent = document.createElement('div');
-                modalContent.style.maxWidth = '100%';
-                modalContent.style.maxHeight = '100%';
-                modalContent.style.imageRendering = 'auto';
-                modalContent.style.position = 'relative';
-                modalContent.style.left = '45%';
-                modalContent.style.top = '30%';
-                for (let i = 0; i < tables.length; i++) {
-                    const table = tables[i].values[0][0];
-                    const tableData = db.exec('SELECT * FROM ' + table);
-                    const tableDiv = document.createElement('div');
-                    tableDiv.textContent = table;
-                    tableDiv.style.margin = '1rem';
-                    tableDiv.style.padding = '1rem';
-                    tableDiv.style.border = '1px solid #ffffff';
-                    tableDiv.style.borderRadius = '0.5rem';
-                    tableDiv.style.overflow = 'auto';
-                    for (let j = 0; j < tableData.length; j++) {
-                        const row = tableData[j];
-                        const rowDiv = document.createElement('div');
-                        rowDiv.textContent = row;
-                        rowDiv.style.margin = '0.5rem';
-                        rowDiv.style.padding = '0.5rem';
-                        rowDiv.style.border = '1px solid #ffffff';
-                        rowDiv.style.borderRadius = '0.5rem';
-                        rowDiv.style.overflow = 'auto';
-                        tableDiv.appendChild(rowDiv);
-                    }
-                    modalContent.appendChild(tableDiv);
-                }
-                modal.appendChild(modalContent);
-                document.body.appendChild(modal);
+                // Download SQLite Database
+                const blob = new Blob([sqlite_db], { type: 'application/x-sqlite3' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = div.textContent + '.db';
+                a.click();
+                URL.revokeObjectURL(url);
             };
+            div.style.cursor = 'pointer';
             document.getElementById('sqlite-list').appendChild(div);
+        }
+        // // // // Android Binary XML Carving // // // //
+        function performxmlCarving(AB) {
+            const view = new DataView(AB);
+            const SZ = view.byteLength;
+            const XML_HEADER = [0x41, 0x42, 0x58, 0x00, 0x10, 0x32, 0xFF, 0xFF];
+            const XML_FOOTER = [0x33, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00];
+            const XML_HEADER_LENGTH = XML_HEADER.length;
+            const XML_FOOTER_LENGTH = XML_FOOTER.length;
+            const XML_SIGNATURE_LENGTH = XML_HEADER_LENGTH + XML_FOOTER_LENGTH;
+            let start = 0;
+            let end = 0;
+            let found = false;
+            for (let i = 0; i < SZ - XML_SIGNATURE_LENGTH; i++) {
+                if (view.getUint8(i) === XML_HEADER[0] && view.getUint8(i + 1) === XML_HEADER[1] && view.getUint8(i + 2) === XML_HEADER[2] && view.getUint8(i + 3) === XML_HEADER[3] && view.getUint8(i + 4) === XML_HEADER[4] && view.getUint8(i + 5) === XML_HEADER[5] && view.getUint8(i + 6) === XML_HEADER[6] && view.getUint8(i + 7) === XML_HEADER[7]) {
+                    start = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return;
+            }
+            for (let i = start + XML_HEADER_LENGTH; i < SZ - XML_FOOTER_LENGTH; i++) {
+                if (view.getUint8(i) === XML_FOOTER[0] && view.getUint8(i + 1) === XML_FOOTER[1] && view.getUint8(i + 2) === XML_FOOTER[2] && view.getUint8(i + 3) === XML_FOOTER[3] && view.getUint8(i + 4) === XML_FOOTER[4] && view.getUint8(i + 5) === XML_FOOTER[5] && view.getUint8(i + 6) === XML_FOOTER[6] && view.getUint8(i + 7) === XML_FOOTER[7]) {
+                    end = i + XML_FOOTER_LENGTH;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return;
+            }
+            const xml = view.buffer.slice(start, end);
+            xml_hash = new Uint32Array(1);
+            crypto.subtle.digest('SHA-256', xml).then(function (hash) {
+                xml_hash = new Uint32Array(hash);
+                if (window.FoundHashes.has(xml_hash[0])) {
+                    return;
+                }
+                window.FoundHashes.add(xml_hash[0]);
+            });
+            console.log(xml);
+            displayxml(new Blob([xml], { type: 'application/xml' }));
+        }
+        window.xmlcount = 0;
+        function displayxml(xml) {
+            if (xml.size === 0) {
+                return;
+            }
+            try {
+                const xmlData = parseBinaryXML(new DataView(xml));
+                console.log(xmlData);
+            } catch (e) {
+                return;
+            }
+            if (window.xmlcount === 0) {
+                $('#androidbinaryxml-list-collapse-btn').attr('disabled', false);
+            }
+            window.xmlcount++;
+            $('#androidbinaryxml-list-collapse-btn').text('Android Binary XML (' + window.xmlcount + ')');
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                console.log('XML found!');
+                const div = document.createElement('div');
+                div.className = 'row';
+                div.textContent = 'Android Binary XML ' + window.xmlcount;
+                div.onclick = function () {
+                    // Download Android Binary XML
+                    const url = URL.createObjectURL(xml);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = div.textContent + '.xml';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+                div.style.cursor = 'pointer';
+                div.setAttribute('title', 'Android Binary XML ' + window.xmlcount);
+                document.getElementById('androidbinaryxml-list').appendChild(div);
+            };
+            reader.readAsText(xml);
         }
     </script>
 </body>
